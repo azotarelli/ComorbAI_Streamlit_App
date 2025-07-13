@@ -76,7 +76,7 @@ NUM_LABELS = len(TODAS_COMORBIDADES)
 MODEL_NAME = 'neuralmind/bert-base-portuguese-cased'
 MAX_LEN = 128
 checkpoint_dir = 'comorb_ai_checkpoints'
-checkpoint_filename = 'checkpoint_epoch_1.pth' # Use o checkpoint mais recente ou o final
+checkpoint_filename = 'checkpoint_epoch_1.pth' # Aponta para o checkpoint correto
 checkpoint_path = os.path.join(checkpoint_dir, checkpoint_filename)
 
 # Detectar dispositivo (GPU ou CPU)
@@ -90,6 +90,7 @@ def load_model_and_tokenizer():
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     st.write(f"Carregando modelo no dispositivo: {device}")
+    st.write(f"Tentando carregar checkpoint de: {checkpoint_path}") # Linha de DEBUG
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=NUM_LABELS)
@@ -166,5 +167,4 @@ if st.button("Analisar Anamnese"):
                     st.info("Nenhuma comorbidade confirmada detectada neste texto.")
 
 st.markdown("---")
-st.markdown("Desenvolvido para o projeto ComorbAI por Anderson Zotarelli.")
-
+st.markdown("Desenvolvido para o projeto ComorbAI, por Anderson Zotarelli")
