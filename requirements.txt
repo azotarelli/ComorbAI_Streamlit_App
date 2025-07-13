@@ -1,0 +1,8 @@
+streamlit
+pandas
+openpyxl
+transformers
+torch
+torchvision
+torchaudio
+scikit-learn
