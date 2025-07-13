@@ -76,7 +76,7 @@ NUM_LABELS = len(TODAS_COMORBIDADES)
 MODEL_NAME = 'neuralmind/bert-base-portuguese-cased'
 MAX_LEN = 128
 checkpoint_dir = 'comorb_ai_checkpoints'
-checkpoint_filename = 'checkpoint_epoch_0.pth' # Use o checkpoint mais recente ou o final
+checkpoint_filename = 'checkpoint_epoch_1.pth' # Use o checkpoint mais recente ou o final
 checkpoint_path = os.path.join(checkpoint_dir, checkpoint_filename)
 
 # Detectar dispositivo (GPU ou CPU)
