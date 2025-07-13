@@ -1,12 +1,13 @@
-import streamlit as st # Biblioteca Streamlit para criar a interface web
+import streamlit as st
 import pandas as pd
 import unicodedata
 import re
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import os
+from huggingface_hub import hf_hub_download # Importa a função para baixar do Hugging Face Hub
 
-# --- Funções de Pré-processamento (copiadas para consistência) ---
+# --- Funções de Pré-processamento (mantidas) ---
 def limpar_texto_para_ia(texto_original):
     """
     Aplica as mesmas etapas de limpeza do ANTEC_PESSOAL_LIMPO do script de treinamento.
@@ -34,8 +35,7 @@ def limpar_texto_para_ia(texto_original):
     
     return temp_text
 
-# --- Dicionários de Comorbidades Base (copiados para consistência) ---
-# Necessário para saber quais comorbidades o modelo foi treinado para prever
+# --- Dicionários de Comorbidades Base (mantidos) ---
 COMORBIDADES_BASE_MAP = {
     'diabetes': ['diabetes', 'dm', 'dm1', 'dm2', 'diabetico', 'diabetica', 'glicemia alta', 'glicemia elevada', 'diabete', 'diabettes'],
     'hipertensao': ['hipertensao', 'has', 'hipertenso', 'hipertensa', 'pressao alta', 'aas'],
@@ -65,31 +65,36 @@ COMORBIDADES_BASE_MAP = {
     'sedentarismo': ['sedentarismo', 'sedentario', 'sedentaria', 'inatividade fisica', 'sem exercicio', 'pouca atividade']
 }
 
-# Lista de todas as comorbidades que o modelo foi treinado para prever
 TODAS_COMORBIDADES = list(COMORBIDADES_BASE_MAP.keys())
-
-# Mapeamento de índices para nomes de comorbidades (para exibir os resultados)
 idx_to_comorb = {i: comorb for i, comorb in enumerate(TODAS_COMORBIDADES)}
 NUM_LABELS = len(TODAS_COMORBIDADES)
 
-# Configurações do modelo (devem ser as mesmas do treinamento)
 MODEL_NAME = 'neuralmind/bert-base-portuguese-cased'
 MAX_LEN = 128
-checkpoint_dir = 'comorb_ai_checkpoints'
-checkpoint_filename = 'checkpoint_epoch_1.pth' # Aponta para o checkpoint correto
-checkpoint_path = os.path.join(checkpoint_dir, checkpoint_filename)
 
-# Detectar dispositivo (GPU ou CPU)
-# Usamos st.cache_resource para carregar o modelo e o tokenizador apenas uma vez
-# Isso é crucial para a performance da aplicação Streamlit
+# --- NOVO: Configuração para baixar do Hugging Face Hub ---
+# Substitua 'seu_usuario' pelo seu nome de usuário no Hugging Face
+# Substitua 'ComorbAI-Checkpoint' pelo nome do repositório que você criou para o modelo
+HF_REPO_ID = "azotarelli/ComorbAI-Checkpoint" # Exemplo: "seu_usuario/ComorbAI-Checkpoint"
+HF_FILENAME = "checkpoint_epoch_2.pth" # O nome do arquivo do checkpoint no Hugging Face Hub
+
 @st.cache_resource
 def load_model_and_tokenizer():
     """
-    Carrega o tokenizador e o modelo BERT do checkpoint.
-    Esta função será executada apenas uma vez.
+    Carrega o tokenizador e o modelo BERT do checkpoint, baixando-o do Hugging Face Hub.
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     st.write(f"Carregando modelo no dispositivo: {device}")
+    
+    # Baixa o arquivo do Hugging Face Hub para o cache do Streamlit
+    with st.spinner(f"Baixando modelo {HF_FILENAME} do Hugging Face Hub..."):
+        try:
+            checkpoint_path = hf_hub_download(repo_id=HF_REPO_ID, filename=HF_FILENAME)
+            st.write(f"Modelo baixado para: {checkpoint_path}")
+        except Exception as e:
+            st.error(f"Erro ao baixar o modelo do Hugging Face Hub: {e}")
+            st.stop()
+
     st.write(f"Tentando carregar checkpoint de: {checkpoint_path}") # Linha de DEBUG
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
@@ -102,16 +107,16 @@ def load_model_and_tokenizer():
         model.load_state_dict(checkpoint['model_state_dict'])
         st.write("Modelo carregado do checkpoint com sucesso!")
     else:
-        st.error(f"Erro: Checkpoint '{checkpoint_path}' não encontrado.")
-        st.stop() # Interrompe a execução se o checkpoint não for encontrado
+        st.error(f"Erro: Checkpoint '{checkpoint_path}' não encontrado após download.")
+        st.stop()
 
-    model.eval() # Coloca o modelo em modo de avaliação
+    model.eval()
     return tokenizer, model, device
 
 # Carrega o modelo e o tokenizador
 tokenizer, model, device = load_model_and_tokenizer()
 
-# --- Interface do Streamlit ---
+# --- Interface do Streamlit (mantida) ---
 st.set_page_config(page_title="ComorbAI - Detector de Comorbidades", layout="centered")
 
 st.title("🩺 ComorbAI - Detector de Comorbidades")
@@ -128,13 +133,11 @@ if st.button("Analisar Anamnese"):
         st.warning("Por favor, digite um texto para analisar.")
     else:
         with st.spinner("Analisando..."):
-            # Limpar o texto de entrada
             texto_limpo_input = limpar_texto_para_ia(anamnese_input)
 
             if not texto_limpo_input:
                 st.warning("Nenhum texto válido para analisar após a limpeza. Tente novamente.")
             else:
-                # Tokenizar o texto de entrada
                 encoding = tokenizer.encode_plus(
                     texto_limpo_input,
                     add_special_tokens=True,
@@ -149,7 +152,6 @@ if st.button("Analisar Anamnese"):
                 input_ids = encoding['input_ids'].to(device)
                 attention_mask = encoding['attention_mask'].to(device)
 
-                # Fazer a previsão (inferência)
                 with torch.no_grad():
                     outputs = model(input_ids, attention_mask=attention_mask)
                     logits = outputs.logits
@@ -159,7 +161,7 @@ if st.button("Analisar Anamnese"):
                 nenhuma_detectada = True
                 for i, prob in enumerate(probs):
                     comorbidade = idx_to_comorb[i]
-                    if prob > 0.5: # Limiar de 0.5 (50%)
+                    if prob > 0.5:
                         st.success(f"- **{comorbidade.replace('_', ' ').title()}** (Probabilidade: {prob:.4f})")
                         nenhuma_detectada = False
                 
@@ -167,4 +169,4 @@ if st.button("Analisar Anamnese"):
                     st.info("Nenhuma comorbidade confirmada detectada neste texto.")
 
 st.markdown("---")
-st.markdown("Desenvolvido para o projeto ComorbAI, por Anderson Zotarelli")
+st.markdown("Desenvolvido para o projeto ComorbAI. Por Anderson Zotarelli")

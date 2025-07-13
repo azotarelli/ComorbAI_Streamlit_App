@@ -6,3 +6,4 @@ torch
 torchvision
 torchaudio
 scikit-learn
+huggingface_hub
